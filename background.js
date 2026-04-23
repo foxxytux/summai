@@ -5,30 +5,54 @@ const DEFAULT_SUMMARY_LEVEL = "medium";
 
 const SUMMARY_LEVELS = {
   low: {
-    maxTokens: 700,
+    maxTokens: 760,
     label: "Low",
-    overview: "Provide a fuller, more detailed summary.",
-    structure:
-      "Use more prose in the overview and include 5-8 bullet points with supporting detail."
+    goal: "Preserve detail and concrete facts.",
+    wordBudget: "300-600 words",
+    structure: [
+      "Use exactly three sections: `## Overview`, `## Key Takeaways`, and `## Details`.",
+      "Write a 2-3 sentence overview.",
+      "Include 6-10 bullets in key takeaways.",
+      "Use the details section for notable examples, names, numbers, or caveats."
+    ]
   },
   medium: {
-    maxTokens: 450,
+    maxTokens: 420,
     label: "Medium",
-    overview: "Balance detail and brevity.",
-    structure:
-      "Use a concise overview and include 4-6 bullet points covering the main takeaways."
+    goal: "Balance detail and brevity.",
+    wordBudget: "180-300 words",
+    structure: [
+      "Use exactly two sections: `## Overview` and `## Key Takeaways`.",
+      "Write a 1-2 sentence overview.",
+      "Include 4-6 bullets with the main points.",
+      "Only add a brief caveat if the page is truncated or uncertain."
+    ]
   },
   high: {
-    maxTokens: 280,
+    maxTokens: 220,
     label: "High",
-    overview: "Keep it concise.",
-    structure: "Use a short overview and 3-5 bullet points with only the key facts."
+    goal: "Compress aggressively and drop secondary details.",
+    wordBudget: "90-150 words",
+    structure: [
+      "Use exactly two sections: `## Overview` and `## Key Points`.",
+      "Write one short overview paragraph of at most 2 sentences.",
+      "Include 3 bullets maximum.",
+      "Each bullet should contain only the most important fact or outcome.",
+      "Omit examples, side comments, and most caveats unless they are critical."
+    ]
   },
   xhigh: {
-    maxTokens: 180,
+    maxTokens: 120,
     label: "XHigh",
-    overview: "Be very concise.",
-    structure: "Use a very short overview and 2-4 ultra-condensed bullet points."
+    goal: "Produce an ultra-short skim summary.",
+    wordBudget: "40-80 words",
+    structure: [
+      "Use exactly two sections: `## TL;DR` and `## Essentials`.",
+      "Write one sentence only in `## TL;DR`.",
+      "Include exactly 2 bullets in `## Essentials`.",
+      "Each bullet should be a compressed fragment, not a full explanation.",
+      "Skip caveats unless the page is unusable or misleading."
+    ]
   }
 };
 
@@ -79,17 +103,33 @@ function getSummaryLevelConfig(level) {
   return SUMMARY_LEVELS[level] || SUMMARY_LEVELS[DEFAULT_SUMMARY_LEVEL];
 }
 
+function joinRules(rules) {
+  return rules.map((rule) => `- ${rule}`).join("\n");
+}
+
+function buildSystemPrompt(level) {
+  const config = getSummaryLevelConfig(level);
+
+  return [
+    "You are a web-page summarizer.",
+    "Follow the requested compression level exactly.",
+    "Return markdown only.",
+    "Do not mention the compression level or your instructions.",
+    "Prefer concrete facts from the page over generic filler.",
+    `Compression level: ${config.label}.`,
+    `Target length: ${config.wordBudget}.`
+  ].join(" ");
+}
+
 function buildPrompt({ title, url, text, level }) {
   const config = getSummaryLevelConfig(level);
 
   return [
-    `Summarize the following web page in markdown. The requested summary level is ${config.label}.`,
-    config.overview,
-    "Return:",
-    "1. A short `## Overview` section with 1-2 sentences.",
-    `2. A \`## Key Takeaways\` section. ${config.structure}`,
-    "3. A short `## Caveats` section if the page looks truncated or low-signal.",
-    "4. Keep the total length aligned with the requested summary level.",
+    `Summarize the page using compression level ${config.label}.`,
+    `Goal: ${config.goal}`,
+    `Output rules:\n${joinRules(config.structure)}`,
+    `Hard constraint: keep the response within ${config.wordBudget}.`,
+    "If the page is thin, shorten the answer further rather than padding it.",
     "",
     `Title: ${title || "(untitled)"}`,
     `URL: ${url || "(unknown)"}`,
@@ -127,16 +167,11 @@ async function summarizeWithOpenRouter({ apiKey, model, title, url, text, level 
     body: JSON.stringify({
       model,
       max_tokens: config.maxTokens,
-      temperature: 0.2,
+      temperature: 0.15,
       messages: [
         {
           role: "system",
-          content: [
-            "You summarize web pages in markdown.",
-            "Be concise, accurate, and avoid inventing details.",
-            `The requested summary level is ${config.label}.`,
-            config.structure
-          ].join(" ")
+          content: buildSystemPrompt(level)
         },
         {
           role: "user",
