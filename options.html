@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Summai Options</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="panel">
+        <p class="eyebrow">Configuration</p>
+        <h1>Summai</h1>
+        <p class="lede">
+          Store your OpenRouter API key locally and choose the model you want to use for page
+          summaries.
+        </p>
+
+        <label class="field">
+          <span>OpenRouter API key</span>
+          <input id="apiKey" type="password" placeholder="sk-or-..." autocomplete="off" />
+        </label>
+
+        <label class="field">
+          <span>Model</span>
+          <input id="model" type="text" placeholder="openai/gpt-4o-mini" />
+        </label>
+
+        <div class="actions">
+          <button id="save" type="button">Save</button>
+          <p id="status" class="status"></p>
+        </div>
+      </section>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Summai</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <div>
+          <p class="eyebrow">OpenRouter summary</p>
+          <h1>Summai</h1>
+        </div>
+        <div class="actions">
+          <button id="refreshButton" class="ghost-button" type="button">Re-summarize</button>
+          <button id="openSummaryButton" class="ghost-button" type="button">Open page</button>
+          <button id="optionsButton" class="ghost-button" type="button">Options</button>
+        </div>
+      </header>
+
+      <section class="card status-card">
+        <div id="status" class="status">Summarizing the current page...</div>
+      </section>
+
+      <section class="card">
+        <div class="summary-shell">
+          <pre id="summary" class="summary" aria-live="polite"></pre>
+        </div>
+      </section>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

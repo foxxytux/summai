@@ -1,0 +1,44 @@
+{
+  "manifest_version": 2,
+  "name": "Summai",
+  "version": "0.1.0",
+  "description": "Summarize the current web page with OpenRouter.",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "storage",
+    "https://openrouter.ai/*"
+  ],
+  "browser_action": {
+    "default_title": "Summarize page",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon.svg",
+      "32": "icons/icon.svg",
+      "48": "icons/icon.svg"
+    }
+  },
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "web_accessible_resources": [
+    "summary.html",
+    "summary.css",
+    "summary.js"
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "summai@local"
+    }
+  },
+  "icons": {
+    "16": "icons/icon.svg",
+    "32": "icons/icon.svg",
+    "48": "icons/icon.svg",
+    "128": "icons/icon.svg"
+  }
+}
