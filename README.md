@@ -34,7 +34,6 @@ If you want to run the source directly while developing:
 
 ## Behavior
 
-- Click the extension icon.
-- The popup extracts readable text from the active tab.
-- The page content is sent to OpenRouter for summarization.
-- The result is shown in the popup.
+- The first time you open the popup on a site, it auto-generates a summary.
+- After that, reopening the popup shows the cached summary for that site.
+- Click `Re-summarize` when you want a fresh summary for the current site.

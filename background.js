@@ -1,6 +1,7 @@
 const DEFAULT_MODEL = "openai/gpt-4o-mini";
 const SUMMARY_CHAR_LIMIT = 20000;
 const SUMMARY_STORAGE_KEY = "lastSummary";
+const SITE_SUMMARY_CACHE_KEY = "summariesBySite";
 const DEFAULT_SUMMARY_LEVEL = "medium";
 
 const SUMMARY_LEVELS = {
@@ -66,6 +67,17 @@ function trimText(text) {
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function getSiteKey(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.origin === "null"
+      ? parsed.href.split("#")[0].split("?")[0]
+      : parsed.origin;
+  } catch {
+    return trimText(url || "");
+  }
 }
 
 async function getActiveTab() {
@@ -211,21 +223,39 @@ async function summarizeWithOpenRouter({ apiKey, model, title, url, text, level 
   return trimText(summary);
 }
 
-async function saveSummary(result) {
+async function saveSummary(result, siteKey) {
   const api = getBrowser();
-  await api.storage.local.set({
-    [SUMMARY_STORAGE_KEY]: {
-      ...result,
-      savedAt: new Date().toISOString()
-    }
-  });
-}
-
-async function getSavedSummary() {
-  const api = getBrowser();
-  const result = await api.storage.local.get({
+  const summary = {
+    ...result,
+    siteKey: trimText(siteKey || result.siteKey || getSiteKey(result.url || "")),
+    savedAt: new Date().toISOString()
+  };
+  const current = await api.storage.local.get({
+    [SITE_SUMMARY_CACHE_KEY]: {},
     [SUMMARY_STORAGE_KEY]: null
   });
+  const cache = { ...(current[SITE_SUMMARY_CACHE_KEY] || {}) };
+  cache[summary.siteKey] = summary;
+
+  await api.storage.local.set({
+    [SITE_SUMMARY_CACHE_KEY]: cache,
+    [SUMMARY_STORAGE_KEY]: summary
+  });
+
+  return summary;
+}
+
+async function getSavedSummary(siteKey) {
+  const api = getBrowser();
+  const result = await api.storage.local.get({
+    [SITE_SUMMARY_CACHE_KEY]: {},
+    [SUMMARY_STORAGE_KEY]: null
+  });
+
+  if (siteKey) {
+    const cache = result[SITE_SUMMARY_CACHE_KEY] || {};
+    return cache[trimText(siteKey)] || null;
+  }
 
   return result[SUMMARY_STORAGE_KEY] || null;
 }
@@ -263,8 +293,7 @@ async function summarizeActiveTab() {
     summary
   };
 
-  await saveSummary(result);
-  return result;
+  return saveSummary(result, getSiteKey(result.url));
 }
 
 getBrowser().runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -289,6 +318,21 @@ getBrowser().runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "GET_LAST_SUMMARY") {
     getSavedSummary()
+      .then((result) => {
+        sendResponse({ ok: true, summary: result });
+      })
+      .catch((error) => {
+        sendResponse({
+          ok: false,
+          error: error && error.message ? error.message : "Unexpected error"
+        });
+      });
+
+    return true;
+  }
+
+  if (message.type === "GET_SITE_SUMMARY") {
+    getSavedSummary(message.siteKey)
       .then((result) => {
         sendResponse({ ok: true, summary: result });
       })

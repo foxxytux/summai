@@ -6,6 +6,8 @@ const refreshButton = document.getElementById("refreshButton");
 const openSummaryButton = document.getElementById("openSummaryButton");
 const optionsButton = document.getElementById("optionsButton");
 const SUMMARY_STORAGE_KEY = "lastSummary";
+const SITE_SUMMARY_CACHE_KEY = "summariesBySite";
+let currentSiteKey = "";
 
 function setStatus(text) {
   statusEl.textContent = text;
@@ -13,6 +15,17 @@ function setStatus(text) {
 
 function setSummary(text) {
   summaryEl.textContent = text;
+}
+
+function getSiteKey(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.origin === "null"
+      ? parsed.href.split("#")[0].split("?")[0]
+      : parsed.origin;
+  } catch {
+    return (url || "").trim();
+  }
 }
 
 function renderSummary(data) {
@@ -26,27 +39,54 @@ function renderSummary(data) {
   setSummary(`${title}${data.summary}${savedAt}`);
 }
 
-async function loadCachedSummary() {
+async function getActiveTab() {
+  const tabs = await api.tabs.query({ active: true, currentWindow: true });
+  return tabs[0] || null;
+}
+
+async function loadCachedSummary(siteKey) {
   const result = await api.storage.local.get({
+    [SITE_SUMMARY_CACHE_KEY]: {},
     [SUMMARY_STORAGE_KEY]: null
   });
 
-  return result[SUMMARY_STORAGE_KEY];
+  if (!siteKey) {
+    return null;
+  }
+
+  const cache = result[SITE_SUMMARY_CACHE_KEY] || {};
+  if (cache[siteKey]) {
+    return cache[siteKey];
+  }
+
+  const fallback = result[SUMMARY_STORAGE_KEY];
+  if (fallback) {
+    const fallbackSiteKey = fallback.siteKey || getSiteKey(fallback.url || "");
+    if (fallbackSiteKey === siteKey) {
+      const migrated = {
+        ...fallback,
+        siteKey
+      };
+      cache[siteKey] = migrated;
+      await api.storage.local.set({
+        [SITE_SUMMARY_CACHE_KEY]: cache,
+        [SUMMARY_STORAGE_KEY]: migrated
+      });
+      return migrated;
+    }
+  }
+
+  return null;
 }
 
-async function restoreCachedSummary() {
-  try {
-    const cached = await loadCachedSummary();
-    if (cached) {
-      renderSummary(cached);
-      setStatus("Last summary restored.");
-    } else {
-      setSummary("No summary yet. Click the extension icon to generate one.");
-      setStatus("Ready.");
-    }
-  } catch (error) {
-    setStatus("Ready.");
+async function persistLastSummary(summary) {
+  if (!summary || !currentSiteKey) {
+    return;
   }
+
+  await api.storage.local.set({
+    [SUMMARY_STORAGE_KEY]: summary
+  });
 }
 
 async function summarize() {
@@ -61,9 +101,10 @@ async function summarize() {
 
     setStatus("Summary ready.");
     renderSummary(response);
+    await persistLastSummary(response);
   } catch (error) {
     setStatus("Could not summarize this page.");
-    if (!(await loadCachedSummary())) {
+    if (!(await loadCachedSummary(currentSiteKey))) {
       setSummary(
         `${error && error.message ? error.message : "Unexpected error"}\n\n` +
           "If you have not added an OpenRouter API key yet, open Options first."
@@ -86,6 +127,17 @@ optionsButton.addEventListener("click", () => {
 });
 
 document.addEventListener("DOMContentLoaded", async () => {
-  await restoreCachedSummary();
-  summarize();
+  const tab = await getActiveTab();
+  currentSiteKey = tab && tab.url ? getSiteKey(tab.url) : "";
+
+  const cached = await loadCachedSummary(currentSiteKey);
+  if (cached) {
+    renderSummary(cached);
+    setStatus("Summary for this site restored. Click Re-summarize to update.");
+    await persistLastSummary(cached);
+  } else {
+    setSummary("No summary yet. Click the extension icon to generate one.");
+    setStatus("First visit to this site. Generating summary...");
+    await summarize();
+  }
 });
