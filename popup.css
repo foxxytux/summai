@@ -46,6 +46,52 @@ body {
   justify-content: flex-end;
 }
 
+.level-control {
+  display: grid;
+  gap: 4px;
+  align-items: start;
+  min-width: 96px;
+}
+
+.level-label {
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: left;
+}
+
+.level-control select {
+  appearance: none;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: white;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 30px 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  line-height: 1.2;
+  box-shadow: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #64748b 50%),
+    linear-gradient(135deg, #64748b 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) calc(50% - 2px),
+    calc(100% - 10px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.level-control select:focus {
+  outline: 2px solid rgba(234, 88, 12, 0.18);
+  border-color: rgba(234, 88, 12, 0.4);
+}
+
+.level-control select:hover {
+  background-color: var(--accent-soft);
+}
+
 .eyebrow {
   margin: 0 0 4px;
   font-size: 11px;

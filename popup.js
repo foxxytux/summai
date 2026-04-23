@@ -2,12 +2,15 @@ const api = typeof browser !== "undefined" ? browser : chrome;
 
 const statusEl = document.getElementById("status");
 const summaryEl = document.getElementById("summary");
+const summaryLevelSelect = document.getElementById("summaryLevel");
 const refreshButton = document.getElementById("refreshButton");
 const openSummaryButton = document.getElementById("openSummaryButton");
 const optionsButton = document.getElementById("optionsButton");
 const SUMMARY_STORAGE_KEY = "lastSummary";
 const SITE_SUMMARY_CACHE_KEY = "summariesBySite";
+const DEFAULT_SUMMARY_LEVEL = "medium";
 let currentSiteKey = "";
+let currentSummaryLevel = DEFAULT_SUMMARY_LEVEL;
 
 function setStatus(text) {
   statusEl.textContent = text;
@@ -28,6 +31,24 @@ function getSiteKey(url) {
   }
 }
 
+function normalizeSummaryLevel(level) {
+  return ["low", "medium", "high", "xhigh"].includes(level) ? level : DEFAULT_SUMMARY_LEVEL;
+}
+
+function getSummaryLevelLabel(level) {
+  switch (normalizeSummaryLevel(level)) {
+    case "low":
+      return "Low";
+    case "high":
+      return "High";
+    case "xhigh":
+      return "XHigh";
+    case "medium":
+    default:
+      return "Medium";
+  }
+}
+
 function renderSummary(data) {
   if (!data || !data.summary) {
     setSummary("No summary yet. Click the extension icon to generate one.");
@@ -42,6 +63,23 @@ function renderSummary(data) {
 async function getActiveTab() {
   const tabs = await api.tabs.query({ active: true, currentWindow: true });
   return tabs[0] || null;
+}
+
+async function loadPopupSettings() {
+  const result = await api.storage.local.get({
+    summaryLevel: DEFAULT_SUMMARY_LEVEL
+  });
+
+  currentSummaryLevel = normalizeSummaryLevel(result.summaryLevel);
+  summaryLevelSelect.value = currentSummaryLevel;
+}
+
+async function saveSummaryLevel(level) {
+  currentSummaryLevel = normalizeSummaryLevel(level);
+  await api.storage.local.set({
+    summaryLevel: currentSummaryLevel
+  });
+  summaryLevelSelect.value = currentSummaryLevel;
 }
 
 async function loadCachedSummary(siteKey) {
@@ -99,7 +137,7 @@ async function summarize() {
       throw new Error(response && response.error ? response.error : "Summarization failed.");
     }
 
-    setStatus("Summary ready.");
+    setStatus(`Summary ready. ${getSummaryLevelLabel(currentSummaryLevel)} level.`);
     renderSummary(response);
     await persistLastSummary(response);
   } catch (error) {
@@ -126,7 +164,20 @@ optionsButton.addEventListener("click", () => {
   api.runtime.openOptionsPage();
 });
 
+summaryLevelSelect.addEventListener("change", () => {
+  const nextLevel = normalizeSummaryLevel(summaryLevelSelect.value);
+  saveSummaryLevel(nextLevel)
+    .then(() => {
+      setStatus(`Level set to ${getSummaryLevelLabel(nextLevel)}. Re-summarizing...`);
+      return summarize();
+    })
+    .catch((error) => {
+      setStatus(error && error.message ? error.message : "Could not update summary level.");
+    });
+});
+
 document.addEventListener("DOMContentLoaded", async () => {
+  await loadPopupSettings();
   const tab = await getActiveTab();
   currentSiteKey = tab && tab.url ? getSiteKey(tab.url) : "";
 

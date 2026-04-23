@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Summai",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Summarize the current web page with OpenRouter.",
   "permissions": [
     "activeTab",
