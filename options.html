@@ -26,6 +26,16 @@
           <input id="model" type="text" placeholder="openai/gpt-4o-mini" />
         </label>
 
+        <label class="field">
+          <span>Summary level</span>
+          <select id="summaryLevel">
+            <option value="low">Low - longer, more detailed</option>
+            <option value="medium">Medium - balanced</option>
+            <option value="high">High - shorter, less detailed</option>
+            <option value="xhigh">XHigh - very short, minimal detail</option>
+          </select>
+        </label>
+
         <div class="actions">
           <button id="save" type="button">Save</button>
           <p id="status" class="status"></p>

@@ -20,7 +20,8 @@ If you want to install the unsigned `.xpi` locally, use Firefox Developer Editio
 2. Search for `xpinstall.signatures.required`.
 3. Set it to `false`.
 4. Restart Firefox Developer Edition if needed.
-5. Install `summai-0.1.0.xpi` from the GitHub release or drag it into `about:addons`.
+5. Install the latest `summai-*.xpi` from the GitHub release or drag it into `about:addons`.
+6. Pick a summary level in the extension options if you want longer or shorter summaries.
 
 ## Dev Install
 

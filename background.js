@@ -1,7 +1,36 @@
 const DEFAULT_MODEL = "openai/gpt-4o-mini";
-const DEFAULT_MAX_TOKENS = 350;
 const SUMMARY_CHAR_LIMIT = 20000;
 const SUMMARY_STORAGE_KEY = "lastSummary";
+const DEFAULT_SUMMARY_LEVEL = "medium";
+
+const SUMMARY_LEVELS = {
+  low: {
+    maxTokens: 700,
+    label: "Low",
+    overview: "Provide a fuller, more detailed summary.",
+    structure:
+      "Use more prose in the overview and include 5-8 bullet points with supporting detail."
+  },
+  medium: {
+    maxTokens: 450,
+    label: "Medium",
+    overview: "Balance detail and brevity.",
+    structure:
+      "Use a concise overview and include 4-6 bullet points covering the main takeaways."
+  },
+  high: {
+    maxTokens: 280,
+    label: "High",
+    overview: "Keep it concise.",
+    structure: "Use a short overview and 3-5 bullet points with only the key facts."
+  },
+  xhigh: {
+    maxTokens: 180,
+    label: "XHigh",
+    overview: "Be very concise.",
+    structure: "Use a very short overview and 2-4 ultra-condensed bullet points."
+  }
+};
 
 function getBrowser() {
   return typeof browser !== "undefined" ? browser : chrome;
@@ -46,13 +75,21 @@ async function extractPageText(tabId) {
   };
 }
 
-function buildPrompt({ title, url, text }) {
+function getSummaryLevelConfig(level) {
+  return SUMMARY_LEVELS[level] || SUMMARY_LEVELS[DEFAULT_SUMMARY_LEVEL];
+}
+
+function buildPrompt({ title, url, text, level }) {
+  const config = getSummaryLevelConfig(level);
+
   return [
-    "Summarize the following web page clearly and concisely in markdown.",
+    `Summarize the following web page in markdown. The requested summary level is ${config.label}.`,
+    config.overview,
     "Return:",
     "1. A short `## Overview` section with 1-2 sentences.",
-    "2. A `## Key Takeaways` section with 3-6 bullet points.",
+    `2. A \`## Key Takeaways\` section. ${config.structure}`,
     "3. A short `## Caveats` section if the page looks truncated or low-signal.",
+    "4. Keep the total length aligned with the requested summary level.",
     "",
     `Title: ${title || "(untitled)"}`,
     `URL: ${url || "(unknown)"}`,
@@ -66,15 +103,18 @@ async function getSettings() {
   const api = getBrowser();
   const result = await api.storage.local.get({
     apiKey: "",
-    model: DEFAULT_MODEL
+    model: DEFAULT_MODEL,
+    summaryLevel: DEFAULT_SUMMARY_LEVEL
   });
   return {
     apiKey: String(result.apiKey || "").trim(),
-    model: String(result.model || DEFAULT_MODEL).trim() || DEFAULT_MODEL
+    model: String(result.model || DEFAULT_MODEL).trim() || DEFAULT_MODEL,
+    summaryLevel: String(result.summaryLevel || DEFAULT_SUMMARY_LEVEL).trim() || DEFAULT_SUMMARY_LEVEL
   };
 }
 
-async function summarizeWithOpenRouter({ apiKey, model, title, url, text }) {
+async function summarizeWithOpenRouter({ apiKey, model, title, url, text, level }) {
+  const config = getSummaryLevelConfig(level);
   const api = getBrowser();
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -86,20 +126,25 @@ async function summarizeWithOpenRouter({ apiKey, model, title, url, text }) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: DEFAULT_MAX_TOKENS,
+      max_tokens: config.maxTokens,
       temperature: 0.2,
       messages: [
         {
           role: "system",
-          content:
-            "You summarize web pages in markdown. Be concise, accurate, and avoid inventing details."
+          content: [
+            "You summarize web pages in markdown.",
+            "Be concise, accurate, and avoid inventing details.",
+            `The requested summary level is ${config.label}.`,
+            config.structure
+          ].join(" ")
         },
         {
           role: "user",
           content: buildPrompt({
             title,
             url,
-            text: text.slice(0, SUMMARY_CHAR_LIMIT)
+            text: text.slice(0, SUMMARY_CHAR_LIMIT),
+            level
           })
         }
       ]
@@ -173,7 +218,8 @@ async function summarizeActiveTab() {
     model: settings.model,
     title: page.title || tab.title || "",
     url: page.url || tab.url || "",
-    text: cleanText
+    text: cleanText,
+    level: settings.summaryLevel
   });
 
   const result = {

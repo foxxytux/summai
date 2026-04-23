@@ -70,7 +70,8 @@ h1 {
   font-weight: 600;
 }
 
-input {
+input,
+select {
   width: 100%;
   padding: 14px 15px;
   border: 1px solid var(--border);
@@ -80,7 +81,8 @@ input {
   font-size: 14px;
 }
 
-input:focus {
+input:focus,
+select:focus {
   outline: 2px solid rgba(234, 88, 12, 0.18);
   border-color: rgba(234, 88, 12, 0.4);
 }
