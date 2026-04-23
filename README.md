@@ -2,13 +2,15 @@
 
 Firefox extension that summarizes the current page with OpenRouter when you click the extension icon.
 
-## Install the `.xpi`
+## Install
 
-1. Download the latest `.xpi` from the [GitHub release](https://github.com/foxxytux/summai/releases/tag/v0.1.0).
-2. In Firefox, open `about:addons`.
-3. Click the gear icon and choose `Install Add-on From File`.
-4. Select `summai-0.1.0.xpi`.
-5. Open the extension options and add your OpenRouter API key.
+Firefox release builds only install add-ons that are signed and verified by Mozilla.
+
+That means:
+
+- The `.xpi` in the GitHub release is not installable in normal Firefox until it is signed.
+- For development, you can still load the source temporarily from `about:debugging#/runtime/this-firefox`.
+- For a normal install, the extension needs to be submitted to Mozilla Add-ons and signed.
 
 ## Dev Install
 
