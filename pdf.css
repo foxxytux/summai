@@ -1,0 +1,152 @@
+:root {
+  color-scheme: light;
+  --bg1: #fff7ed;
+  --bg2: #f8fafc;
+  --panel: rgba(255, 255, 255, 0.92);
+  --border: rgba(15, 23, 42, 0.12);
+  --text: #0f172a;
+  --muted: #64748b;
+  --accent: #ea580c;
+  --accent-soft: rgba(234, 88, 12, 0.12);
+  --shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(234, 88, 12, 0.16), transparent 30%),
+    linear-gradient(180deg, var(--bg1) 0%, var(--bg2) 100%);
+}
+
+.page {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 32px 20px 40px;
+}
+
+.hero {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+h1 {
+  margin: 0;
+  font-size: 44px;
+  line-height: 0.95;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.status-panel {
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.status {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.summary-shell {
+  max-height: calc(100vh - 190px);
+  overflow: auto;
+  border-radius: 24px;
+}
+
+.summary {
+  margin: 0;
+  min-height: 220px;
+  padding: 20px 22px 24px;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.summary h2 {
+  margin: 0 0 12px;
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.summary h3 {
+  margin: 1.2em 0 0.45em;
+  line-height: 1.2;
+}
+
+.summary p {
+  margin: 0 0 1em;
+}
+
+.summary ul,
+.summary ol {
+  margin: 0 0 1em 1.4em;
+  padding: 0;
+}
+
+.summary li {
+  margin: 0.35em 0;
+}
+
+.summary .saved-at {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 18px;
+}
+
+.ghost-button {
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: white;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ghost-button:hover {
+  background: var(--accent-soft);
+  border-color: rgba(234, 88, 12, 0.28);
+}
+
+.summary-shell::-webkit-scrollbar {
+  width: 10px;
+}
+
+.summary-shell::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.24);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}

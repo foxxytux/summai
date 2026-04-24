@@ -410,6 +410,21 @@ getBrowser().runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "OPEN_PDF_PAGE") {
+    const api = getBrowser();
+
+    api.tabs.create({ url: api.runtime.getURL("pdf.html") })
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => {
+        sendResponse({
+          ok: false,
+          error: error && error.message ? error.message : "Unexpected error"
+        });
+      });
+
+    return true;
+  }
+
   summarizeActiveTab()
     .then((result) => {
       sendResponse({ ok: true, ...result });

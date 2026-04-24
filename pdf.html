@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Summai PDF</title>
+    <link rel="stylesheet" href="pdf.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Local PDF text extraction</p>
+          <h1>Summai</h1>
+        </div>
+        <div class="actions">
+          <button id="chooseButton" class="ghost-button" type="button">Choose PDF</button>
+          <button id="openSummaryButton" class="ghost-button" type="button">Open page</button>
+        </div>
+      </header>
+
+      <section class="panel status-panel">
+        <div id="status" class="status">Choose a PDF to extract text and summarize it.</div>
+      </section>
+
+      <section class="panel">
+        <div class="summary-shell">
+          <div id="summary" class="summary" aria-live="polite"></div>
+        </div>
+      </section>
+    </main>
+    <input id="pdfInput" type="file" accept="application/pdf" hidden />
+    <script src="pdf.js"></script>
+  </body>
+</html>
