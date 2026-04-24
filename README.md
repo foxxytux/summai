@@ -1,6 +1,6 @@
 # Summai
 
-Firefox extension that summarizes the current page or text extracted from an uploaded PDF with OpenRouter.
+Firefox extension that summarizes the current page or bundled OCR-extracted text from an uploaded PDF with OpenRouter.
 
 ## Install
 
@@ -36,7 +36,6 @@ If you want to run the source directly while developing:
 
 - The first time you open the popup on a site, it auto-generates a summary.
 - After that, reopening the popup shows the cached summary for that site.
-- Use `Open PDF` to open a new tab, choose a local PDF, extract its text, and summarize that text.
-- This release does not run OCR; image-only PDFs will not summarize well.
+- Use `Open PDF` to open a new tab, choose a local PDF, and summarize it with text extraction or bundled OCR.
 - Use the popup `Level` control to switch summary length without opening Options.
 - Click `Re-summarize` when you want a fresh summary for the current site.

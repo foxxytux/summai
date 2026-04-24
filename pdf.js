@@ -8,13 +8,18 @@ const summaryEl = document.getElementById("summary");
 
 const SUMMARY_STORAGE_KEY = "lastSummary";
 const DEFAULT_SUMMARY_LEVEL = "medium";
+const SUMMARY_CHAR_LIMIT = 20000;
+const OCR_PAGE_SCALE = 2;
+let pdfjsPromise = null;
+let tesseractWorkerPromise = null;
+let tesseractWorker = null;
 
 function setStatus(text) {
   statusEl.textContent = text;
 }
 
 function setSummary(text) {
-  summaryEl.textContent = text;
+  summaryEl.innerHTML = text;
 }
 
 function getSummaryLevelLabel(level) {
@@ -63,7 +68,7 @@ function renderMarkdown(markdown) {
 
   function closeList() {
     if (inList) {
-      parts.push(inList.html + "</" + inList.tag + ">");
+      parts.push(`${inList.html}</${inList.tag}>`);
       inList = null;
     }
   }
@@ -118,166 +123,15 @@ function renderMarkdown(markdown) {
   return parts.join("");
 }
 
-function bytesToLatin1(bytes) {
-  return new TextDecoder("latin1").decode(bytes);
-}
-
-function decodePdfString(text) {
-  let output = "";
-
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i];
-    if (char !== "\\") {
-      output += char;
-      continue;
-    }
-
-    i += 1;
-    if (i >= text.length) {
-      break;
-    }
-
-    const next = text[i];
-    switch (next) {
-      case "n":
-        output += "\n";
-        break;
-      case "r":
-        output += "\r";
-        break;
-      case "t":
-        output += "\t";
-        break;
-      case "b":
-        output += "\b";
-        break;
-      case "f":
-        output += "\f";
-        break;
-      case "(":
-      case ")":
-      case "\\":
-        output += next;
-        break;
-      case "\n":
-        break;
-      case "\r":
-        if (text[i + 1] === "\n") {
-          i += 1;
-        }
-        break;
-      default:
-        if (/[0-7]/.test(next)) {
-          let octal = next;
-          let count = 0;
-          while (count < 2 && i + 1 < text.length && /[0-7]/.test(text[i + 1])) {
-            i += 1;
-            octal += text[i];
-            count += 1;
-          }
-          output += String.fromCharCode(parseInt(octal, 8));
-        } else {
-          output += next;
-        }
-    }
+async function loadPdfjs() {
+  if (!pdfjsPromise) {
+    pdfjsPromise = import(api.runtime.getURL("vendor/pdfjs/pdf.min.mjs")).then((pdfjsLib) => {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = api.runtime.getURL("vendor/pdfjs/pdf.worker.min.mjs");
+      return pdfjsLib;
+    });
   }
 
-  return output;
-}
-
-function decodePdfHexString(hex) {
-  const cleaned = hex.replace(/\s+/g, "");
-  const normalized = cleaned.length % 2 === 0 ? cleaned : `${cleaned}0`;
-  let output = "";
-
-  for (let i = 0; i < normalized.length; i += 2) {
-    const code = parseInt(normalized.slice(i, i + 2), 16);
-    if (!Number.isNaN(code)) {
-      output += String.fromCharCode(code);
-    }
-  }
-
-  return output;
-}
-
-function collectTextFragments(block) {
-  const fragments = [];
-  const stringPattern = /\(((?:\\.|[^\\()])*)\)\s*T[jJ]/g;
-  const arrayPattern = /\[((?:\\.|[^\\\]])*)\]\s*TJ/g;
-  const hexPattern = /<([0-9A-Fa-f\s]+)>\s*T[jJ]/g;
-  let match;
-
-  while ((match = stringPattern.exec(block))) {
-    fragments.push(decodePdfString(match[1]));
-  }
-
-  while ((match = arrayPattern.exec(block))) {
-    const payload = match[1];
-    let innerMatch;
-    const innerStringPattern = /\(((?:\\.|[^\\()])*)\)/g;
-    const innerHexPattern = /<([0-9A-Fa-f\s]+)>/g;
-
-    while ((innerMatch = innerStringPattern.exec(payload))) {
-      fragments.push(decodePdfString(innerMatch[1]));
-    }
-
-    while ((innerMatch = innerHexPattern.exec(payload))) {
-      fragments.push(decodePdfHexString(innerMatch[1]));
-    }
-  }
-
-  while ((match = hexPattern.exec(block))) {
-    fragments.push(decodePdfHexString(match[1]));
-  }
-
-  return fragments;
-}
-
-async function inflatePdfStream(streamText) {
-  if (typeof DecompressionStream === "undefined") {
-    return null;
-  }
-
-  try {
-    const streamBytes = Uint8Array.from(streamText, (char) => char.charCodeAt(0));
-    const compressed = new Blob([streamBytes]).stream().pipeThrough(new DecompressionStream("deflate"));
-    const decompressed = await new Response(compressed).arrayBuffer();
-    return bytesToLatin1(new Uint8Array(decompressed));
-  } catch {
-    return null;
-  }
-}
-
-async function extractPdfText(file) {
-  const buffer = await file.arrayBuffer();
-  const rawText = bytesToLatin1(new Uint8Array(buffer));
-  const streamPattern = /stream\r?\n([\s\S]*?)endstream/g;
-  const fragments = [];
-  let match;
-
-  while ((match = streamPattern.exec(rawText))) {
-    const streamText = match[1].replace(/^\r?\n/, "");
-    const content = (await inflatePdfStream(streamText)) || streamText;
-    const blocks = content.match(/BT[\s\S]*?ET/g) || [content];
-
-    for (const block of blocks) {
-      fragments.push(...collectTextFragments(block));
-    }
-  }
-
-  if (!fragments.length) {
-    const blocks = rawText.match(/BT[\s\S]*?ET/g) || [];
-    for (const block of blocks) {
-      fragments.push(...collectTextFragments(block));
-    }
-  }
-
-  return fragments
-    .map((fragment) => fragment.replace(/\s+/g, " ").trim())
-    .filter(Boolean)
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return pdfjsPromise;
 }
 
 async function loadSettings() {
@@ -300,16 +154,136 @@ async function persistLastSummary(summary) {
   });
 }
 
+function createCanvas(width, height) {
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.floor(width));
+  canvas.height = Math.max(1, Math.floor(height));
+  return canvas;
+}
+
+function trimText(text) {
+  return String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+async function extractNativePdfText(pdf, limit) {
+  const chunks = [];
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum += 1) {
+    const page = await pdf.getPage(pageNum);
+    const textContent = await page.getTextContent({
+      normalizeWhitespace: true,
+      disableCombineTextItems: false
+    });
+
+    const pageText = trimText(
+      textContent.items
+        .map((item) => item.str || "")
+        .join(" ")
+    );
+
+    if (pageText) {
+      chunks.push(pageText);
+    }
+
+    if (chunks.join("\n\n").length >= limit) {
+      break;
+    }
+  }
+
+  return trimText(chunks.join("\n\n")).slice(0, limit);
+}
+
+async function loadTesseractWorker() {
+  if (!tesseractWorkerPromise) {
+    tesseractWorkerPromise = (async () => {
+      const worker = await Tesseract.createWorker([TESSDATA_ENG], 1, {
+        workerPath: api.runtime.getURL("vendor/tesseract/worker.min.js"),
+        corePath: api.runtime.getURL("vendor/tesseract-core"),
+        workerBlobURL: false,
+        gzip: false
+      });
+      tesseractWorker = worker;
+      return worker;
+    })();
+  }
+
+  return tesseractWorkerPromise;
+}
+
+async function ocrPdfText(pdf, limit) {
+  const worker = await loadTesseractWorker();
+  const chunks = [];
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum += 1) {
+    setStatus(`OCR page ${pageNum} of ${pdf.numPages}...`);
+    const page = await pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale: OCR_PAGE_SCALE });
+    const canvas = createCanvas(viewport.width, viewport.height);
+    const context = canvas.getContext("2d", { alpha: false });
+
+    await page.render({
+      canvasContext: context,
+      viewport
+    }).promise;
+
+    const result = await worker.recognize(canvas);
+    const pageText = trimText(result && result.data && result.data.text ? result.data.text : "");
+
+    if (pageText) {
+      chunks.push(pageText);
+    }
+
+    if (chunks.join("\n\n").length >= limit) {
+      break;
+    }
+  }
+
+  return trimText(chunks.join("\n\n")).slice(0, limit);
+}
+
+async function extractPdfText(file) {
+  const pdfjsLib = await loadPdfjs();
+  const data = await file.arrayBuffer();
+  const loadingTask = pdfjsLib.getDocument({
+    data,
+    cMapUrl: api.runtime.getURL("vendor/pdfjs/cmaps/"),
+    cMapPacked: true,
+    standardFontDataUrl: api.runtime.getURL("vendor/pdfjs/standard_fonts/")
+  });
+
+  const pdf = await loadingTask.promise;
+  const nativeText = await extractNativePdfText(pdf, SUMMARY_CHAR_LIMIT);
+
+  if (nativeText.length >= 300) {
+    return {
+      method: "text",
+      text: nativeText
+    };
+  }
+
+  setStatus("Text layer is thin. Running OCR...");
+  const ocrText = await ocrPdfText(pdf, SUMMARY_CHAR_LIMIT);
+
+  return {
+    method: "ocr",
+    text: ocrText
+  };
+}
+
 async function summarizePdf(file) {
   if (!file) {
     return;
   }
 
-  setStatus(`Extracting text from ${file.name}...`);
+  setStatus(`Reading ${file.name}...`);
 
-  const extractedText = await extractPdfText(file);
-  if (!extractedText) {
-    throw new Error("Could not extract readable text from that PDF. OCR is not bundled in this release.");
+  const { text, method } = await extractPdfText(file);
+  if (!text) {
+    throw new Error("Could not extract readable text from that PDF.");
   }
 
   const settings = await loadSettings();
@@ -318,7 +292,7 @@ async function summarizePdf(file) {
   const response = await api.runtime.sendMessage({
     type: "SUMMARIZE_PDF_FILE",
     fileName: file.name,
-    extractedText,
+    extractedText: text,
     level: settings.summaryLevel
   });
 
@@ -326,7 +300,8 @@ async function summarizePdf(file) {
     throw new Error(response && response.error ? response.error : "PDF summarization failed.");
   }
 
-  setStatus(`PDF summary ready. ${getSummaryLevelLabel(settings.summaryLevel)} level.`);
+  const methodLabel = method === "ocr" ? "OCR" : "text extraction";
+  setStatus(`PDF summary ready. ${getSummaryLevelLabel(settings.summaryLevel)} level via ${methodLabel}.`);
   setSummary(
     `<h2>${escapeHtml(file.name)}</h2>` +
       renderMarkdown(response.summary) +
@@ -335,14 +310,8 @@ async function summarizePdf(file) {
   await persistLastSummary(response);
 }
 
-async function openFilePicker() {
-  pdfInput.click();
-}
-
 chooseButton.addEventListener("click", () => {
-  openFilePicker().catch((error) => {
-    setStatus(error && error.message ? error.message : "Could not open the file picker.");
-  });
+  pdfInput.click();
 });
 
 pdfInput.addEventListener("change", () => {
@@ -350,7 +319,7 @@ pdfInput.addEventListener("change", () => {
   summarizePdf(file)
     .catch((error) => {
       setStatus("Could not summarize that PDF.");
-      setSummary(error && error.message ? error.message : "Unexpected error");
+      setSummary(`<p class="empty">${escapeHtml(error && error.message ? error.message : "Unexpected error")}</p>`);
     })
     .finally(() => {
       pdfInput.value = "";
@@ -361,12 +330,12 @@ openSummaryButton.addEventListener("click", () => {
   api.runtime.sendMessage({ type: "OPEN_SUMMARY_PAGE" });
 });
 
-document.addEventListener("DOMContentLoaded", () => {
-  setStatus("Choose a PDF to extract text and summarize it.");
+window.addEventListener("beforeunload", () => {
+  if (tesseractWorker) {
+    tesseractWorker.terminate().catch(() => {});
+  }
 });
 
-window.addEventListener("load", () => {
-  setTimeout(() => {
-    pdfInput.click();
-  }, 0);
+document.addEventListener("DOMContentLoaded", () => {
+  setStatus("Choose a PDF to extract text and summarize it.");
 });

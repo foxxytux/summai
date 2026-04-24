@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "Summai",
-  "version": "0.1.7",
-  "description": "Summarize web pages and locally extracted PDF text with OpenRouter.",
+  "version": "0.1.8",
+  "description": "Summarize web pages and bundled OCR-extracted PDF text with OpenRouter.",
   "permissions": [
     "activeTab",
     "tabs",
@@ -31,7 +31,13 @@
     "summary.js",
     "pdf.html",
     "pdf.css",
-    "pdf.js"
+    "pdf.js",
+    "vendor/pdfjs/*",
+    "vendor/pdfjs/cmaps/*",
+    "vendor/pdfjs/standard_fonts/*",
+    "vendor/tesseract/*",
+    "vendor/tesseract-core/*",
+    "vendor/tessdata/eng/*"
   ],
   "browser_specific_settings": {
     "gecko": {
