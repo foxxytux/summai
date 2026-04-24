@@ -151,19 +151,6 @@ function buildPrompt({ title, url, text, level }) {
   ].join("\n");
 }
 
-function buildPdfPrompt({ fileName, level }) {
-  const config = getSummaryLevelConfig(level);
-
-  return [
-    `Summarize the uploaded PDF document${fileName ? ` (${fileName})` : ""}.`,
-    `Goal: ${config.goal}`,
-    `Output rules:\n${joinRules(config.structure)}`,
-    `Hard constraint: keep the response within ${config.wordBudget}.`,
-    "Prioritize the document's claims, structure, tables, and conclusions.",
-    "If the PDF is scanned or noisy, extract the clearest usable summary you can."
-  ].join("\n");
-}
-
 async function getSettings() {
   const api = getBrowser();
   const result = await api.storage.local.get({
@@ -178,29 +165,8 @@ async function getSettings() {
   };
 }
 
-async function summarizeWithOpenRouter({ apiKey, model, title, url, text, level, file }) {
+async function summarizeWithOpenRouter({ apiKey, model, title, url, text, level }) {
   const config = getSummaryLevelConfig(level);
-  const userContent = file
-    ? [
-        {
-          type: "text",
-          text: buildPdfPrompt({
-            fileName: file.filename || file.fileName || "",
-            level
-          })
-        },
-        {
-          type: "file",
-          file
-        }
-      ]
-    : buildPrompt({
-        title,
-        url,
-        text: text.slice(0, SUMMARY_CHAR_LIMIT),
-        level
-      });
-
   const api = getBrowser();
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -221,7 +187,12 @@ async function summarizeWithOpenRouter({ apiKey, model, title, url, text, level,
         },
         {
           role: "user",
-          content: userContent
+          content: buildPrompt({
+            title,
+            url,
+            text: text.slice(0, SUMMARY_CHAR_LIMIT),
+            level
+          })
         }
       ]
     })
@@ -325,23 +296,24 @@ async function summarizeActiveTab() {
   return saveSummary(result, getSiteKey(result.url));
 }
 
-async function summarizePdfFile({ fileName, fileData, level }) {
+async function summarizePdfText({ fileName, extractedText, level }) {
   const settings = await getSettings();
   if (!settings.apiKey) {
     throw new Error("Missing OpenRouter API key. Open the extension options to add one.");
+  }
+
+  const cleanText = trimText(extractedText || "");
+  if (!cleanText) {
+    throw new Error("Could not extract text from that PDF.");
   }
 
   const summary = await summarizeWithOpenRouter({
     apiKey: settings.apiKey,
     model: settings.model,
     title: fileName || "PDF document",
-    url: "",
-    text: "",
+    url: "uploaded PDF",
+    text: cleanText,
     level: level || settings.summaryLevel,
-    file: {
-      filename: fileName || "document.pdf",
-      fileData
-    }
   });
 
   const result = {
@@ -375,9 +347,9 @@ getBrowser().runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "SUMMARIZE_PDF_FILE") {
-    summarizePdfFile({
+    summarizePdfText({
       fileName: message.fileName,
-      fileData: message.fileData,
+      extractedText: message.extractedText,
       level: message.level
     })
       .then((result) => {
