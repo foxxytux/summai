@@ -3,6 +3,8 @@ const api = typeof browser !== "undefined" ? browser : chrome;
 const statusEl = document.getElementById("status");
 const summaryEl = document.getElementById("summary");
 const summaryLevelSelect = document.getElementById("summaryLevel");
+const uploadPdfButton = document.getElementById("uploadPdfButton");
+const pdfInput = document.getElementById("pdfInput");
 const refreshButton = document.getElementById("refreshButton");
 const openSummaryButton = document.getElementById("openSummaryButton");
 const optionsButton = document.getElementById("optionsButton");
@@ -55,7 +57,8 @@ function renderSummary(data) {
     return;
   }
 
-  const title = data.title ? `${data.title}\n\n` : "";
+  const titleText = data.fileName || data.title || "";
+  const title = titleText ? `${titleText}\n\n` : "";
   const savedAt = data.savedAt ? `\n\nSaved ${new Date(data.savedAt).toLocaleString()}` : "";
   setSummary(`${title}${data.summary}${savedAt}`);
 }
@@ -118,7 +121,7 @@ async function loadCachedSummary(siteKey) {
 }
 
 async function persistLastSummary(summary) {
-  if (!summary || !currentSiteKey) {
+  if (!summary) {
     return;
   }
 
@@ -150,6 +153,63 @@ async function summarize() {
     }
   }
 }
+
+async function readPdfAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Could not read the PDF."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function summarizePdf(file) {
+  if (!file) {
+    return;
+  }
+
+  if (file.type && file.type !== "application/pdf") {
+    setStatus("Choose a PDF file.");
+    return;
+  }
+
+  setStatus(`Uploading ${file.name}...`);
+
+  try {
+    const fileData = await readPdfAsDataUrl(file);
+    setStatus(`Summarizing ${file.name}...`);
+
+    const response = await api.runtime.sendMessage({
+      type: "SUMMARIZE_PDF_FILE",
+      fileName: file.name,
+      fileData,
+      level: currentSummaryLevel
+    });
+
+    if (!response || !response.ok) {
+      throw new Error(response && response.error ? response.error : "PDF summarization failed.");
+    }
+
+    setStatus(`PDF summary ready. ${getSummaryLevelLabel(currentSummaryLevel)} level.`);
+    renderSummary(response);
+    await persistLastSummary(response);
+  } catch (error) {
+    setStatus("Could not summarize that PDF.");
+    setSummary(error && error.message ? error.message : "Unexpected error");
+  } finally {
+    pdfInput.value = "";
+  }
+}
+
+uploadPdfButton.addEventListener("click", () => {
+  pdfInput.click();
+});
+
+pdfInput.addEventListener("change", () => {
+  summarizePdf(pdfInput.files && pdfInput.files[0]).catch((error) => {
+    setStatus(error && error.message ? error.message : "Could not summarize that PDF.");
+  });
+});
 
 openSummaryButton.addEventListener("click", () => {
   api.runtime.sendMessage({ type: "OPEN_SUMMARY_PAGE" });

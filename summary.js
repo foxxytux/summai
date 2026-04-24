@@ -108,7 +108,11 @@ async function renderPage() {
     return;
   }
 
-  metaEl.textContent = data.title ? data.title : "Saved summary";
+  if (data.fileName) {
+    metaEl.textContent = `PDF · ${data.fileName}`;
+  } else {
+    metaEl.textContent = data.title ? data.title : "Saved summary";
+  }
   contentEl.innerHTML = renderMarkdown(data.summary);
 }
 

@@ -23,6 +23,7 @@
               <option value="xhigh">XHigh</option>
             </select>
           </label>
+          <button id="uploadPdfButton" class="ghost-button" type="button">Upload PDF</button>
           <button id="refreshButton" class="ghost-button" type="button">Re-summarize</button>
           <button id="openSummaryButton" class="ghost-button" type="button">Open page</button>
           <button id="optionsButton" class="ghost-button" type="button">Options</button>
@@ -39,6 +40,7 @@
         </div>
       </section>
     </main>
+    <input id="pdfInput" type="file" accept="application/pdf" hidden />
     <script src="popup.js"></script>
   </body>
 </html>

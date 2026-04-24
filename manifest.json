@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "Summai",
-  "version": "0.1.4",
-  "description": "Summarize the current web page with OpenRouter.",
+  "version": "0.1.5",
+  "description": "Summarize web pages and PDF files with OpenRouter.",
   "permissions": [
     "activeTab",
     "tabs",
